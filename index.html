@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://use.fontawesome.com/releases/v5.14.0/css/all.css"
+      integrity="sha384-HzLeBuhoNPvSl5KYnjx0BT+WB0QEEqLprO+NBkkk5gbc67FTaL7XIGa2w1L0Xbgc"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div class="back-drop"></div>
+    <div class="main_container">
+      <nav class="main-nav">
+        <div class="menu-btn">
+          <i class="fas fa-bars fa-2x"></i>
+        </div>
+        <img src="/img/WiselyLogo.svg" alt="" / class="logo">
+        <ul class="main-nav__menus">
+          <li class="card">
+            <div>
+              <span>현명한 습관,</span>
+              <span>와이즐리</span><span>입니다.</span>
+              <a href="#" class="card__login__btn"
+                >로그인 <i class="fas fa-chevron-right"></i
+              ></a>
+            </div>
+          </li>
+          <li><a href="#">시작하기</a></li>
+          <li><a href="#">상품보기</a></li>
+          <li><a href="#">와이즐리 이야기</a></li>
+          <li><a href="#">고객센터</a></li>
+        </ul>
+
+        <div class="main-nav__user">
+          <ul>
+            <li><a href="#">로그인</a></li>
+            <li><a href="#">장바구니</a></li>
+          </ul>
+          <div class="cart-count">
+            <span>0</span>
+          </div>
+        </div>
+      </nav>
+
+      <div class="main__image">
+        <div class="container">
+          <!-- Nav -->
+          <!-- <nav class="main-nav">
+          <img src="/img/WiselyLogo.svg" alt="" />
+          <ul class="main-nav__menus">
+            <li><a href="#">시작하기</a></li>
+            <li><a href="#">상품보기</a></li>
+            <li><a href="#">와이즐리 이야기</a></li>
+            <li><a href="#">고객센터</a></li>
+          </ul>
+
+          <div class="main-nav__user">
+            <ul>
+              <li><a href="#">로그인</a></li>
+              <li><a href="#">장바구니</a></li>
+            </ul>
+            <div class="cart-count">
+              <span>0</span>
+            </div>
+          </div>
+        </nav> -->
+          <!-- main body 1 -->
+          <section class="main-body-1">
+            <div class="content">
+              <h2 class="title__light">정직한 가격의</h2>
+              <h2 class="title__bold">프리미엄 면도용품 구독 서비스</h2>
+              <p>독일산 5중날 8,900원, 첫 가입시 면도기를 드려요</p>
+              <a href="#" class="main__btn"> 더 알아보기 </a>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- main body 2 -->
+      <section class="main-body-2">
+        <div class="content">
+          <img src="img/home_fooled.png" alt="" />
+          <h2 class="main-body-2__title">더 이상 속지 마세요</h2>
+          <p class="main-body-2__description">
+            면도날 가격은 거품이 많습니다. 와이즐리는 중간 유통과 과도한 <br />
+            마케팅을 걷어내고, 최고급 면도날을 정직한 가격에 제공합니다.
+          </p>
+          <a href="#" class="main-body-2__btn"
+            >브랜드 스토리 <i class="fas fa-chevron-right"></i
+          ></a>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      document.querySelector(".menu-btn").addEventListener("click", () => {
+        document.querySelector(".main-nav__menus").classList.toggle("show");
+        document.querySelector(".back-drop").classList.toggle("active");
+      });
+
+      document.querySelector(".back-drop").addEventListener("click", () => {
+        document.querySelector(".main-nav__menus").classList.toggle("show");
+        document.querySelector(".back-drop").classList.toggle("active");
+      });
+    </script>
+  </body>
+</html>

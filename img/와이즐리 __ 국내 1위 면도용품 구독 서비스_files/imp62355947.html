@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<!-- saved from url=(0053)https://service.iamport.kr/payments/ready/imp62355947 -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no">
+		<title>
+		Payments	</title>
+	<script type="text/javascript" src="./json3.min.js"></script><script type="text/javascript" src="./jquery-1.10.2.min.js"></script></head>
+<body class="vsc-initialized" style="">
+	<div id="container">
+		<div id="header">
+		</div>
+		<div id="content">
+
+			
+			<script type="text/javascript">
+function _response(action, data, source, origin) {
+	var msg = {
+		action : action,
+		data : data
+	};
+	var obj = JSON.stringify(msg); //받는 쪽에서 parse하므로 string이라도 stringify해서 넘김
+
+	source.postMessage(obj, '*');
+}
+
+(function(window) {
+	var document = window.document;
+
+	function on_message(e) {
+		var obj = {},
+			action = null,
+			data = null,
+			request_id = null;
+		var source = e.source;
+		var origin = e.origin;
+
+		try {
+			obj = JSON.parse(e.data);
+			action = obj.action;
+			data = obj.data || {};
+			request_id = data.request_id;
+			origin = obj.origin || origin;
+		} catch(e) {}
+
+		if ( action == 'payment' ) {
+			var custom_data = JSON.stringify(data.custom_data);
+
+			$.ajax({
+				type : 'POST',
+				url : '/payco_payments/prepare.json',
+				dataType : 'json',
+				data : {
+					channel : 'pc',
+					provider : 'payco',
+					pay_method : data.pay_method, //service DB에는 원본
+					escrow : data.escrow,
+					amount : data.amount,
+					tax_free : data.tax_free,
+					name : data.name,
+					merchant_uid : data.merchant_uid,
+					user_code : 'imp62355947',
+					tier_code : data.tier_code,
+					pg_id : 'IM_1NRNBB',
+					buyer_name : data.buyer_name,
+					buyer_email : data.buyer_email,
+					buyer_tel : data.buyer_tel,
+					buyer_addr : data.buyer_addr,
+					buyer_postcode : data.buyer_postcode,
+					request_id : request_id,
+					origin : origin,
+					m_redirect_url : data.m_redirect_url,
+					custom_data : custom_data,
+					notice_url : data.notice_url,
+					confirm_url : data.confirm_url,
+					vbank_due : data.vbank_due,
+					card : data.card,
+					language : data.language
+				},
+				error : function(xhr, status, err) {
+					return _response('', {
+						success:false,
+						request_id:request_id,
+						imp_uid: null,
+                        merchant_uid: data.merchant_uid,
+						error_code:'HTTP_ERROR:' + xhr.status,
+						error_msg:'Connection Problem'
+					}, source, origin);
+				}
+			}).done(function(rsp) {
+				if ( rsp.code == 0 ) {
+					var proxyData = {
+						impUid : rsp.data.imp_uid,
+						orderUrl : rsp.data.payco_reserve.orderSheetUrl
+					};
+
+					_response('payco.modal', proxyData, source, origin);
+				} else {
+					_response('payco.modal.error', {
+						success:false,
+						request_id:request_id,
+						imp_uid: rsp.data.imp_uid,
+                        merchant_uid: data.merchant_uid,
+						error_code:rsp.data.error_code,
+						error_msg:rsp.data.error_msg
+					}, source, origin);
+				}
+			});
+		} else if ( action === 'communicate' && data ) {
+			if ( data.result === 'check.closing' ) { //popup 닫기가 감지된 경우. 서버체크 필요
+				location.href = '/payco_payments/closing/' + data.imp_uid + '/' + request_id;//최초 request의 request_id가 postMessage로 전달됨
+			}
+		}
+	}
+
+	if (window.addEventListener) {  // all browsers except IE before version 9
+		window.addEventListener ("message", on_message, false);
+	} else {
+		if (window.attachEvent) {   // IE before version 9
+			window.attachEvent("onmessage", on_message);
+		}
+	}
+}).call({}, window);
+</script>
+		</div>
+		<div id="footer">
+		</div>
+	</div>
+
+
+</body></html>

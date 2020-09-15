@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<!-- saved from url=(0069)https://service.iamport.kr/payments/ready/imp62355947/nice/IMPwisel3m -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no">
+		<title>
+		Payments	</title>
+	<script type="text/javascript" src="./json3.min.js"></script><script type="text/javascript" src="./jquery-1.10.2.min.js"></script><script type="text/javascript" src="./nicepay_tr_utf.js"></script><script src="./niceUtil.js" language="javascript"></script></head>
+<body class="vsc-initialized" style="">
+	<div id="container">
+		<div id="header">
+		</div>
+		<div id="content">
+
+			
+			<script type="text/javascript">
+/**
+	global scope에 있어야 함(flash에서 nicepaySubmit이라는 함수를 직접 호출)
+	결제 결과를 submit 합니다.
+	알맞게 form을 수정하십시요.
+*/
+function nicepaySubmit(){
+	document.payForm.submit();
+}
+
+(function(window) {
+	NicePayUpdate();	//Active-x Control 초기화
+
+	/**
+	nicepay	를 통해 결제를 시작합니다.
+	*/
+	function pay(frm, p_request_id, p_imp_uid, p_merchant_uid, p_source, p_origin, drop_info) {
+		// 필수 사항들을 체크하는 로직을 삽입해주세요.
+		goPay(frm);
+
+		/**
+		결제를 취소 할때 호출됩니다.
+		*/
+		window.nicepayClose = function() {
+			$.ajax({
+				type : 'POST',
+				url : '/payments/recordDrop.json',
+				dataType : 'json',
+				data : drop_info
+			});
+
+			_response('', {
+				success:false,
+				request_id:p_request_id,
+				imp_uid: p_imp_uid,
+				merchant_uid: p_merchant_uid,
+				error_code:'STOP',
+				error_msg:'결제를 취소하셨습니다.'
+			}, p_source, p_origin);
+		}
+	}
+
+	function toNiceCardCode(stdCode) {
+    switch(stdCode) {
+      case "361": //BC카드
+      return "01";
+
+      case "381": //KB국민카드
+      return "02";
+
+      case "365": //삼성카드
+      return "04";
+
+      case "366": //신한카드
+      return "06";
+
+      case "367": //현대카드
+      return "07";
+
+      case "368": //롯데카드
+      return "08";
+
+      case "370": //씨티카드
+      return "11";
+
+      case "371": //NH카드
+      return "12";
+
+      case "374": //KEB하나카드
+      return "16";
+    }
+
+    return null;
+  }
+
+  function toQuotaDigit(q) {
+    if ( q < 10 ) {
+      if ( q <= 1 )   q = 0; //1을 인식하지 못함
+
+      return "0" + q;
+    }
+
+    return q.toString();
+  }
+
+	function _response(action, data, source, origin) {
+		var msg = {
+			action : action,
+			data : data
+		};
+		var obj = JSON.stringify(msg); //받는 쪽에서 parse하므로 string이라도 stringify해서 넘김
+
+		source.postMessage(obj, '*');
+	}
+
+	function _pay_method(method) {
+		switch(method) {
+			case 'card' : //신용카드
+			case 'kakaopay' : //카카오페이 직접 호출
+			return 'CARD';
+
+			case 'trans' : //실시간계좌이체
+			return 'BANK';
+
+			case 'vbank' : //가상계좌
+			return 'VBANK';
+
+			case 'phone' : //휴대폰 소액결제
+			return 'CELLPHONE';
+		}
+
+		return 'CARD';
+	}
+
+	function _category(digital) {
+		if ( digital === true )	return '0'; //컨텐츠
+
+		return '1'; //실물
+	}
+
+	function _vbank_due(due) {
+		var def = "";
+		if (typeof due == 'string') {
+			var s = due.replace(/\D/g,'');
+
+			if (s.length >= 12) {
+				return s.substr(0, 12);
+			} else if (s.length >= 8) {
+				return s.substr(0, 8);
+			}
+		}
+
+		return def;
+	}
+
+	function _options(data) {
+		if ( data.language == 'en' ) {
+			return 'Lang(EN)';
+		} else if ( data.language == 'zh' ) {
+			return "Lang(zh)";
+		}
+
+		return '';
+	}
+
+	function _offerPeriod(period) {
+		switch(period.interval) {
+			case "month" :
+			case "year" :
+				return "BILL";
+
+			default :
+				if ( period.from && period.to )	return period.from + ":" + period.to;
+		}
+
+		return "";
+	}
+
+	function _card_quota(amount, display) {
+		if ( amount >= 50000 && display && display.card_quota ) {
+			var quotaList = ["00"], //일시불은 기본적으로 포함
+					lenQuota = display.card_quota.length;
+
+			if ( lenQuota == 0 )	return "00"; //card_quota가 []이면 일시불만 허용
+
+			for (var i = 0; i < lenQuota; i++) {
+				var s = toQuotaDigit( display.card_quota[i] );
+
+				var found = false;
+				for (var k = quotaList.length - 1; k >= 0; k--) {
+					if ( s === quotaList[k] ) {
+						found = true;
+						break;
+					}
+				};
+
+				if ( !found )	quotaList.push(s);
+			};
+
+			return quotaList.join(",");
+		}
+
+		return ""; //기본값
+	}
+
+	function applyDirectCardCall(form, card) {
+    if ( card && card.direct && card.direct.code ) {
+      //code, quota 체크
+      var niceCode = toNiceCardCode(card.direct.code);
+      if ( niceCode ) { //유효한 나이스 카드코드
+        var quota = card.direct.quota ? parseInt(card.direct.quota) : 0;
+        if ( isNaN(quota) ) quota = 0;
+
+        form.DirectShowOpt.value = "CARD";
+        form.SelectCardCode.value = niceCode;
+        form.SelectQuota.value = toQuotaDigit(quota);
+      }
+    }
+  }
+
+	function truncateBytes(str, bytes) {
+		var s = str || "";
+		var len = s.length,
+				size = 0;
+
+		for (var i = 0; i < len; i++) {
+			if (escape(s.charAt(i)).length == 6) {
+				size++;
+			}
+			size++;
+
+			if (size > bytes) return s.substring(0, i);
+		}
+
+		return s;
+	}
+
+	function on_message(e) {
+		var obj = {},
+			action = null,
+			data = null,
+			request_id = null;
+		var source = e.source;
+		var origin = e.origin;
+
+		try {
+			obj = JSON.parse(e.data);
+			action = obj.action;
+			data = obj.data || {};
+			request_id = data.request_id;
+			origin = obj.origin || origin;
+		} catch(e) {}
+
+		if ( action == 'payment' ) {
+			var custom_data = JSON.stringify(data.custom_data);
+
+			$.ajax({
+				type : 'POST',
+				url : '/nice_payments/prepare.json',
+				dataType : 'json',
+				data : {
+					channel : 'pc',
+					provider : 'nice',
+					pay_method : data.pay_method, //service DB에는 원본
+					escrow : data.escrow,
+					amount : data.amount,
+					tax_free : data.tax_free,
+					name : data.name,
+					merchant_uid : data.merchant_uid,
+					user_code : 'imp62355947',
+					tier_code : data.tier_code,
+					pg_id : 'IMPwisel3m',
+					buyer_name : data.buyer_name,
+					buyer_email : data.buyer_email,
+					buyer_tel : data.buyer_tel,
+					buyer_addr : data.buyer_addr,
+					buyer_postcode : data.buyer_postcode,
+					origin : origin,
+					custom_data : custom_data,
+					notice_url : data.notice_url,
+					confirm_url : data.confirm_url,
+					vbank_due : data.vbank_due,
+					card : data.card
+				},
+				error : function(xhr, status, err) {
+					return _response('', {
+						success:false,
+						request_id:request_id,
+						imp_uid: null,
+						merchant_uid: data.merchant_uid,
+						error_code:'HTTP_ERROR:' + xhr.status,
+						error_msg:'결제 시작을 위해 서버와 통신하는 중 에러가 발생하였습니다'
+					}, source, origin);
+				}
+			}).done(function(rsp) {
+				if ( rsp.code == 0 ) {
+					//common
+					document.payForm.imp_uid.value = rsp.data.imp_uid;
+					document.payForm.Moid.value = rsp.data.imp_uid;
+					document.payForm.GoodsName.value = truncateBytes(rsp.data.refined_name || data.name, 40);
+					document.payForm.BuyerName.value = rsp.data.refined_buyer || 'anonymous';
+					document.payForm.BuyerEmail.value =  data.buyer_email;
+					document.payForm.BuyerTel.value = data.buyer_tel;
+					document.payForm.BuyerAddr.value = data.buyer_addr;
+					document.payForm.Amt.value = data.amount;
+					document.payForm.request_id.value = request_id; // result page에서 callback해주려고 넘김
+
+					document.payForm.PayMethod.value = _pay_method(data.pay_method)
+					document.payForm.GoodsCl.value = _category(data.digital);
+					if ( data.escrow )	document.payForm.TransType.value = '1';
+
+					document.payForm.VbankExpDate.value = _vbank_due(data.vbank_due);
+					document.payForm.MID.value = rsp.data.pg_id;
+
+					document.payForm.UserIP.value = rsp.data.client_ip;
+					document.payForm.EdiDate.value = rsp.data.edi_date;
+					document.payForm.EncryptData.value = rsp.data.encrypt_data;
+
+					//복합과세 설정
+					if ( typeof data.tax_free == 'number' ) {
+						var vat = Math.round(Math.max(data.amount-data.tax_free, 0) / 11); //정부에서는 부가세액에 대해 반올림 권장
+						document.payForm.GoodsVat.value = vat;
+						document.payForm.SupplyAmt.value = data.amount - vat - data.tax_free;
+						document.payForm.ServiceAmt.value = 0;
+						document.payForm.TaxFreeAmt.value = data.tax_free;
+					}
+
+					//기타 결제창 옵션
+					document.payForm.OptionList.value = _options(data);
+
+					//제공기간
+					if ( data.period ) {
+						document.payForm.Period.value = _offerPeriod(data.period);
+					}
+
+					if ( rsp.data.enabled_cards ) { //특정카드사 제한
+						document.payForm.MultiSelectCardCode.value = rsp.data.enabled_cards;
+					}
+					document.payForm.MultiSelectQuota.value = _card_quota(data.amount, data.display);
+
+					//카드사인증 앱카드로만 제한(niceMobileV2에서만 먹힘)
+					if ( data.appCard ) {
+						document.payForm.CardShowOpt.value = "02:3|04:3|06:3|07:3|08:3|12:3"; //모든카드
+					}
+
+					//카드사 인증창 DIRECT호출 ( card.direct 속성을 통해 카드사 / 할부개월수 먼저 지정되어야 함 )
+					applyDirectCardCall(document.payForm, data.card);
+
+					if (data.pay_method == 'kakaopay') {
+					    document.payForm.DirectShowOpt.value = 'CARD';
+					    document.payForm.NicepayReserved.value = 'DirectKakao=Y';
+					}
+
+					pay(document.payForm, request_id, rsp.data.imp_uid, data.merchant_uid, source, origin, {imp_uid:rsp.data.imp_uid, drop_hash:rsp.data.drop_hash}); // mac에서 결제 취소 시 request_id, origin이 필요하다.
+				} else {
+					_response('', {
+						success:false,
+						request_id:request_id,
+						imp_uid: rsp.data.imp_uid,
+						merchant_uid: data.merchant_uid,
+						error_code:rsp.data.error_code,
+						error_msg:rsp.data.error_msg
+					}, source, origin);
+				}
+			});
+		}
+	}
+
+	if (window.addEventListener) {  // all browsers except IE before version 9
+		window.addEventListener ("message", on_message, false);
+	} else {
+		if (window.attachEvent) {   // IE before version 9
+			window.attachEvent("onmessage", on_message);
+		}
+	}
+}).call({}, window);
+</script>
+<form name="payForm" method="post" action="https://service.iamport.kr/nice_payments/result">
+	<input type="hidden" name="GoodsName" value="">
+	<input type="hidden" name="Moid" value="">
+	<input type="hidden" name="BuyerName" value="">
+	<input type="hidden" name="BuyerEmail" value="">
+	<input type="hidden" name="BuyerTel" value="">
+	<input type="hidden" name="BuyerAddr" value="">
+	<input type="hidden" name="MID" value="">
+	<input type="hidden" name="Amt" value="">
+	<input type="hidden" name="PayMethod" value="">
+	<input type="hidden" name="GoodsCnt" value="1">
+	<input type="hidden" name="UserIP" value="">
+	<input type="hidden" name="MallIP" value="10.0.4.53">
+	<input type="hidden" name="SocketYN" value="Y">
+	<input type="hidden" name="TransType" value="0"><!-- 결제 타입 0:일반, 1:에스크로 -->
+	<input type="hidden" name="OptionList" value="">
+	<input type="hidden" name="VbankExpDate" value="">
+	<input type="hidden" name="GoodsCl" value="1"> <!-- 휴대폰 결제 상품구분 1:실물, 0:컨텐츠 -->
+	<input type="hidden" name="Period" value=""> <!-- 서비스 제공기간 -->
+	<input type="hidden" name="SelectCardCode" value="">
+	<input type="hidden" name="SelectQuota" value="">
+	<input type="hidden" name="MultiSelectCardCode" value=""> <!-- SelectCardCode 와 동시 선언되면 SelectCardCode 가 적용됨 -->
+	<input type="hidden" name="MultiSelectQuota" value="">    <!-- SelectQuota 와 동시 선언되면 SelectQuota 가 적용됨 -->
+
+	<input type="hidden" name="CardShowOpt" value="">
+	<input type="hidden" name="DirectShowOpt" value="">
+	<input type="hidden" name="NicepayReserved" value="">
+
+	<!-- 복합과세 -->
+	<input type="hidden" name="SupplyAmt" value="">
+	<input type="hidden" name="GoodsVat" value="">
+	<input type="hidden" name="ServiceAmt" value="">
+	<input type="hidden" name="TaxFreeAmt" value="">
+
+	<input name="EncodeParameters" type="hidden" value="CardNo,CardExpire,CardPwd"><!-- 암호화 항목 -->
+	<!-- 변경 불가 -->
+	<input type="hidden" name="EdiDate" value="">
+	<input type="hidden" name="EncryptData" value="">
+	<input type="hidden" name="TrKey" value="">
+
+	<!-- 여기서부터 custom field -->
+	<input type="hidden" name="imp_uid" value=""><!-- Payment.result()에서 공통화를 위해 imp_uid를 동일한 이름으로 한 번 더 받음 -->
+	<input type="hidden" name="request_id" value="">
+	<input type="hidden" name="user_code" value="imp62355947">
+</form>
+		</div>
+		<div id="footer">
+		</div>
+	</div>
+
+
+</body></html>
